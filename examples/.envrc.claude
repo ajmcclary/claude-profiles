@@ -1,0 +1,29 @@
+# Example per-repo switch with direnv (copy to your project as .envrc, then `direnv allow`)
+# Choose provider for this repo:
+# export CLAUDE_PROVIDER="anthropic"
+export CLAUDE_PROVIDER="zai"
+
+# Provider-specific env (no secrets here)
+if [ "${CLAUDE_PROVIDER}" = "zai" ]; then
+  export ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic"
+  # optional model mappings for Z.ai (usually omit to follow defaults)
+  # export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-4.6"
+  # export ANTHROPIC_DEFAULT_HAIKU_MODEL="glm-4.5-air"
+else
+  unset ANTHROPIC_BASE_URL
+fi
+
+# Privacy/ops hygiene
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+
+# Bring secrets from your store (uncomment one)
+# if command -v pass >/dev/null 2>&1; then
+#   [ "${CLAUDE_PROVIDER}" = "zai" ] && export ZAI_API_KEY="$(pass show api/zai)"
+#   [ "${CLAUDE_PROVIDER}" = "anthropic" ] && export ANTHROPIC_API_KEY="$(pass show api/anthropic)"
+# fi
+# macOS Keychain examples (store once with: security add-generic-password -a "$USER" -s zai_api_key -w)
+# [ "${CLAUDE_PROVIDER}" = "zai" ] && export ZAI_API_KEY="$(security find-generic-password -s zai_api_key -w 2>/dev/null || true)"
+# [ "${CLAUDE_PROVIDER}" = "anthropic" ] && export ANTHROPIC_API_KEY="$(security find-generic-password -s anthropic_api_key -w 2>/dev/null || true)"
+
+# optional: expose a helper to run Claude using env-only switching
+export CLAUDE_LAUNCH="cc-use ${CLAUDE_PROVIDER}"
