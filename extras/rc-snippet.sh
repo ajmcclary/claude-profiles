@@ -1,4 +1,22 @@
 # Claude Code profile switcher + helpers
+_cc_prompt_secret(){
+  local prompt="$1" secret
+  printf "%s" "$prompt" >&2
+  if command -v stty >/dev/null 2>&1; then
+    secret="$(
+      stty -echo
+      trap 'stty echo; exit 130' INT TERM
+      trap 'stty echo' EXIT
+      IFS= read -r _value || exit 1
+      printf "%s" "$_value"
+    )" || return 1
+  else
+    IFS= read -r secret || return 1
+  fi
+  printf "\n" >&2
+  printf "%s" "${secret:-}"
+}
+
 cc-profile() {
   # persistent switch via symlink (~/.claude/settings.json)
   local name="$1"
@@ -15,11 +33,22 @@ cc-profile() {
 
 # One-shot (no file edits); sets env only for this invocation
 cc-use() {
-  local provider="$1"; shift || true
   local force="0"
-  if [ "$provider" = "--force" ]; then
-    provider="$1"; shift || true; force="1"
+  if [ "${1:-}" = "--force" ]; then
+    force="1"
+    shift || true
   fi
+
+  local provider="${1:-}"
+  if [ -z "$provider" ] || [ "$provider" = "--help" ] || [ "$provider" = "-h" ]; then
+    echo "usage: cc-use anthropic|zai [-- args-to-claude]" >&2
+    return 2
+  fi
+  shift || true
+
+  local settings_path="$HOME/.claude/settings.json"
+  local prev_link="" restore_link="0" status=0
+
   case "$provider" in
     anthropic)
       if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
@@ -27,22 +56,26 @@ cc-use() {
           ANTHROPIC_API_KEY="$(pass show api/anthropic 2>/dev/null || true)"
         fi
         if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-          printf "🔑 Enter Anthropic API key: " >&2
-          stty -echo; IFS= read -r ANTHROPIC_API_KEY; stty echo; printf "\n" >&2
+          local entered
+          entered="$(_cc_prompt_secret "🔑 Enter Anthropic API key: ")" || return $?
+          if [ -z "$entered" ]; then
+            echo "Anthropic API key is required" >&2
+            return 1
+          fi
+          ANTHROPIC_API_KEY="$entered"
         fi
       fi
-      # optional: temporarily point settings to matching profile
-      local prev_link
       if [ "$force" = "1" ]; then
-        prev_link="$(readlink "$HOME/.claude/settings.json" 2>/dev/null || true)"
-        ln -sf "$HOME/.claude/profiles/anthropic.json" "$HOME/.claude/settings.json"
+        prev_link="$(readlink "$settings_path" 2>/dev/null || true)"
+        ln -sf "$HOME/.claude/profiles/anthropic.json" "$settings_path"
+        restore_link="1"
       fi
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
       ANTHROPIC_BASE_URL="" \
       ANTHROPIC_AUTH_TOKEN="" \
       ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
       claude "$@"
-      if [ "$force" = "1" ] && [ -n "$prev_link" ]; then ln -sf "$prev_link" "$HOME/.claude/settings.json"; fi
+      status=$?
       ;;
     zai)
       if [ -z "${ZAI_API_KEY:-}" ]; then
@@ -50,25 +83,36 @@ cc-use() {
           ZAI_API_KEY="$(pass show api/zai 2>/dev/null || true)"
         fi
         if [ -z "${ZAI_API_KEY:-}" ]; then
-          printf "🔑 Enter Z.ai API key: " >&2
-          stty -echo; IFS= read -r ZAI_API_KEY; stty echo; printf "\n" >&2
+          local entered
+          entered="$(_cc_prompt_secret "🔑 Enter Z.ai API key: ")" || return $?
+          if [ -z "$entered" ]; then
+            echo "Z.ai API key is required" >&2
+            return 1
+          fi
+          ZAI_API_KEY="$entered"
         fi
       fi
-      # optional: temporarily point settings to matching profile
-      local prev_link
       if [ "$force" = "1" ]; then
-        prev_link="$(readlink "$HOME/.claude/settings.json" 2>/dev/null || true)"
-        ln -sf "$HOME/.claude/profiles/zai.json" "$HOME/.claude/settings.json"
+        prev_link="$(readlink "$settings_path" 2>/dev/null || true)"
+        ln -sf "$HOME/.claude/profiles/zai.json" "$settings_path"
+        restore_link="1"
       fi
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
       ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic" \
       ANTHROPIC_AUTH_TOKEN="$ZAI_API_KEY" \
       claude "$@"
-      if [ "$force" = "1" ] && [ -n "$prev_link" ]; then ln -sf "$prev_link" "$HOME/.claude/settings.json"; fi
+      status=$?
       ;;
     *)
-      echo "usage: cc-use anthropic|zai [-- args-to-claude]" >&2; return 2 ;;
+      echo "usage: cc-use anthropic|zai [-- args-to-claude]" >&2
+      return 2
+      ;;
   esac
+
+  if [ "$restore_link" = "1" ] && [ -n "$prev_link" ]; then
+    ln -sf "$prev_link" "$settings_path"
+  fi
+  return "$status"
 }
 
 # Convenience wrappers that also persist the profile symlink

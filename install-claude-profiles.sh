@@ -84,8 +84,13 @@ ensure_dir(){ [ -d "$1" ] || mkdir -p "$1"; }
 backup_if_exists(){
   local f="$1"
   if [ -e "$f" ] && [ ! -e "${f}.bak" ]; then
-    cp -a "$f" "${f}.bak.$(date +%Y%m%d%H%M%S)"
-    log_i "Backed up $f -> ${f}.bak.*"
+    local backup="${f}.bak.$(date +%Y%m%d%H%M%S)"
+    if [ "$DRY_RUN" = "1" ]; then
+      log_i "Would back up $f -> ${backup}"
+    else
+      cp -a "$f" "$backup"
+      log_i "Backed up $f -> ${f}.bak.*"
+    fi
   fi
 }
 
@@ -235,13 +240,10 @@ install_claude_cli(){
       log_i "Would run: npm install -g $CLAUDE_NPM_PKG"
     else
       if ! npm install -g "$CLAUDE_NPM_PKG"; then
-        log_err "npm install failed. If using a proxy, configure npm proxy settings. Trying npx fallback…"
-        if ! npx --yes "$CLAUDE_NPM_PKG" --version >/dev/null 2>&1; then
-          log_err "npx fallback also failed. Please ensure network connectivity and npm setup, then rerun."
-          exit 1
-        fi
+        log_err "npm install failed. Please fix npm (proxy, permissions, network) and rerun."
+        exit 1
       fi
-      log_ok "Installed Claude Code: $(claude --version 2>/dev/null || echo 'installed via npx')"
+      log_ok "Installed Claude Code: $(claude --version 2>/dev/null || echo '?')"
     fi
   fi
 }
@@ -372,7 +374,7 @@ const cfg = {
     ]
   },
   env: {
-    "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
+    "ANTHROPIC_BASE_URL": "${ZAI_BASE_URL}",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
   }
 };
@@ -415,10 +417,33 @@ install_shell_functions(){
   if [ "$DRY_RUN" = "1" ]; then
     log_i "Would append shell helpers block to ${rc}"
   else
-    append_block_if_missing "$rc" \
-      "# >>> claude-profiles >>>" \
-      "# <<< claude-profiles <<<" <<'RC'
+    if [ -f "$SNIPPET_FILE" ]; then
+      append_block_if_missing "$rc" \
+        "# >>> claude-profiles >>>" \
+        "# <<< claude-profiles <<<" < "$SNIPPET_FILE"
+    else
+      append_block_if_missing "$rc" \
+        "# >>> claude-profiles >>>" \
+        "# <<< claude-profiles <<<" <<'RC'
 # Claude Code profile switcher + helpers
+_cc_prompt_secret(){
+  local prompt="$1" secret
+  printf "%s" "$prompt" >&2
+  if command -v stty >/dev/null 2>&1; then
+    secret="$(
+      stty -echo
+      trap 'stty echo; exit 130' INT TERM
+      trap 'stty echo' EXIT
+      IFS= read -r _value || exit 1
+      printf "%s" "$_value"
+    )" || return 1
+  else
+    IFS= read -r secret || return 1
+  fi
+  printf "\n" >&2
+  printf "%s" "${secret:-}"
+}
+
 cc-profile() {
   # persistent switch via symlink (~/.claude/settings.json)
   local name="$1"
@@ -435,14 +460,22 @@ cc-profile() {
 
 # One-shot (no file edits); sets env only for this invocation
 cc-use() {
-  local provider="$1"; shift || true
   local force="0"
-  if [ "$provider" = "--force" ]; then
-    provider="$1"; shift || true; force="1"
+  if [ "${1:-}" = "--force" ]; then
+    force="1"
+    shift || true
   fi
-  if [ -z "${provider}" ] || [ "${provider}" = "--help" ] || [ "${provider}" = "-h" ]; then
-    echo "usage: cc-use anthropic|zai [-- args-to-claude]" >&2; return 2
+
+  local provider="${1:-}"
+  if [ -z "$provider" ] || [ "$provider" = "--help" ] || [ "$provider" = "-h" ]; then
+    echo "usage: cc-use anthropic|zai [-- args-to-claude]" >&2
+    return 2
   fi
+  shift || true
+
+  local settings_path="$HOME/.claude/settings.json"
+  local prev_link="" restore_link="0" status=0
+
   case "$provider" in
     anthropic)
       if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
@@ -450,23 +483,26 @@ cc-use() {
           ANTHROPIC_API_KEY="$(pass show api/anthropic 2>/dev/null || true)"
         fi
         if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-          printf "🔑 Enter Anthropic API key: " >&2
-          stty -echo; IFS= read -r ANTHROPIC_API_KEY; stty echo; printf "\n" >&2
+          local entered
+          entered="$(_cc_prompt_secret "🔑 Enter Anthropic API key: ")" || return $?
+          if [ -z "$entered" ]; then
+            echo "Anthropic API key is required" >&2
+            return 1
+          fi
+          ANTHROPIC_API_KEY="$entered"
         fi
       fi
-      # ensure Anthropic path is clean of Z.ai env
-      # optional: temporarily point settings to matching profile
-      local prev_link
       if [ "$force" = "1" ]; then
-        prev_link="$(readlink "$HOME/.claude/settings.json" 2>/dev/null || true)"
-        ln -sf "$HOME/.claude/profiles/anthropic.json" "$HOME/.claude/settings.json"
+        prev_link="$(readlink "$settings_path" 2>/dev/null || true)"
+        ln -sf "$HOME/.claude/profiles/anthropic.json" "$settings_path"
+        restore_link="1"
       fi
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
       ANTHROPIC_BASE_URL="" \
       ANTHROPIC_AUTH_TOKEN="" \
       ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
       claude "$@"
-      if [ "$force" = "1" ] && [ -n "$prev_link" ]; then ln -sf "$prev_link" "$HOME/.claude/settings.json"; fi
+      status=$?
       ;;
     zai)
       if [ -z "${ZAI_API_KEY:-}" ]; then
@@ -474,25 +510,36 @@ cc-use() {
           ZAI_API_KEY="$(pass show api/zai 2>/dev/null || true)"
         fi
         if [ -z "${ZAI_API_KEY:-}" ]; then
-          printf "🔑 Enter Z.ai API key: " >&2
-          stty -echo; IFS= read -r ZAI_API_KEY; stty echo; printf "\n" >&2
+          local entered
+          entered="$(_cc_prompt_secret "🔑 Enter Z.ai API key: ")" || return $?
+          if [ -z "$entered" ]; then
+            echo "Z.ai API key is required" >&2
+            return 1
+          fi
+          ZAI_API_KEY="$entered"
         fi
       fi
-      # optional: temporarily point settings to matching profile
-      local prev_link
       if [ "$force" = "1" ]; then
-        prev_link="$(readlink "$HOME/.claude/settings.json" 2>/dev/null || true)"
-        ln -sf "$HOME/.claude/profiles/zai.json" "$HOME/.claude/settings.json"
+        prev_link="$(readlink "$settings_path" 2>/dev/null || true)"
+        ln -sf "$HOME/.claude/profiles/zai.json" "$settings_path"
+        restore_link="1"
       fi
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-      ANTHROPIC_BASE_URL="$ZAI_BASE_URL" \
+      ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic" \
       ANTHROPIC_AUTH_TOKEN="$ZAI_API_KEY" \
       claude "$@"
-      if [ "$force" = "1" ] && [ -n "$prev_link" ]; then ln -sf "$prev_link" "$HOME/.claude/settings.json"; fi
+      status=$?
       ;;
     *)
-      echo "usage: cc-use anthropic|zai [-- args-to-claude]" >&2; return 2 ;;
+      echo "usage: cc-use anthropic|zai [-- args-to-claude]" >&2
+      return 2
+      ;;
   esac
+
+  if [ "$restore_link" = "1" ] && [ -n "$prev_link" ]; then
+    ln -sf "$prev_link" "$settings_path"
+  fi
+  return "$status"
 }
 
 # Convenience wrappers that also persist the profile symlink
@@ -507,6 +554,7 @@ claude-login(){
   if [ -n "$prev_link" ]; then ln -sf "$prev_link" "$HOME/.claude/settings.json"; fi
 }
 RC
+    fi
   fi
 
   log_ok "Shell helpers added to ${rc}"
@@ -539,7 +587,11 @@ RC
   if [ "$DRY_RUN" = "1" ]; then
     log_i "Would write direnv template to ${CLAUDE_DIR}/examples/.envrc.claude"
   else
-    cat > "${CLAUDE_DIR}/examples/.envrc.claude" <<'ENVRC'
+    local template_target="${CLAUDE_DIR}/examples/.envrc.claude"
+    if [ -f "$DIRENV_TEMPLATE_FILE" ]; then
+      cp "$DIRENV_TEMPLATE_FILE" "$template_target"
+    else
+      cat > "$template_target" <<'ENVRC'
 # Example per-repo switch with direnv (copy to your project as .envrc, then `direnv allow`)
 # Choose provider for this repo:
 # export CLAUDE_PROVIDER="anthropic"
@@ -570,6 +622,7 @@ export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 # optional: expose a helper to run Claude using env-only switching
 export CLAUDE_LAUNCH="cc-use ${CLAUDE_PROVIDER}"
 ENVRC
+    fi
   fi
 
   log_ok "Wrote direnv template to ${CLAUDE_DIR}/examples/.envrc.claude"
