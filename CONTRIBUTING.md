@@ -25,6 +25,8 @@ Thanks for helping improve Claude Code Profiles Bootstrap! This guide keeps chan
   - `cc-use anthropic -- /status` and `cc-use zai -- /status`
   - one-off without conflict: `cc-use --force zai -- /status`
   - direnv template works after `direnv allow`
+- Run `scripts/check-shell-compat.sh` to ensure helpers stay compatible with bash and zsh.
+- Run `scripts/check-doc-assets.py` so Markdown links/images never point to missing files.
 - If adding Python or scripts, add lightweight tests where reasonable.
 
 ## Reporting Issues
