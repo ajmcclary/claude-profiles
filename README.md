@@ -85,6 +85,11 @@ cc-use --force zai -- /status
 cc-use anthropic -- /status
 ```
 
+## One-liners
+- Always use Anthropic (persist and run): `cc-profile anthropic && claude`
+- Always use GLM (persist and run): `cc-profile zai && claude`
+- Quick cross-provider one-off without changing default: `cc-use --force zai -- /status`
+
 ### Secrets
 No API keys are stored in profile files. Keys are read from environment variables or helper scripts:
 - Anthropic: `ANTHROPIC_API_KEY`
@@ -102,6 +107,7 @@ You can wire them to a password store (e.g., `pass`) or macOS Keychain.
 - Permission denied for helpers: run `chmod +x ~/.claude/bin/*`.
 - Updating shell helpers: remove the block between markers in your rc and rerun the installer to refresh to the latest snippet.
 - direnv not active: install it (`brew install direnv` or your distro’s package) and ensure your shell rc contains the direnv hook.
+ - Auth conflict warning: run `cc-profile anthropic|zai` first, or use `cc-use --force <provider> -- <args>` to temporarily align the profile for a one-off.
 
 ## Project description
 Bootstrap Claude Code with seamless provider switching. One command installs the CLI, creates secure Anthropic and GLM (Z.ai) profiles, and adds shell helpers: `cc-profile`, `cc-use`, `claude-anthropic`, `claude-glm`. No secrets on disk—env, pass, or Keychain. Optional direnv template, doctor/uninstall, and dry-run for safety.

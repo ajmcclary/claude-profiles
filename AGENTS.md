@@ -28,6 +28,13 @@ Examples:
 - Naming: scripts in `extras/` use `kebab-case.sh`; functions use `lower_snake_case`.
 - Docs: keep README and inline comments concise and task-focused.
 
+## Docs Sync
+- Keep installer flags, helper behavior (especially `--force`), and examples in sync across:
+  - `install-claude-profiles.sh` (embedded RC snippet)
+  - `extras/rc-snippet.sh` and `extras/cc-use-only.sh`
+  - `README.md` (Usage, One-liners, Troubleshooting)
+  - `scripts/make-demo.sh` and `docs/README.md`
+
 ## Testing Guidelines
 - Framework: `pytest` with `pytest-cov` for coverage.
 - Test layout mirrors `src/` (e.g., `src/core/x.py` -> `tests/core/test_x.py`).

@@ -6,6 +6,7 @@ Thanks for helping improve Claude Code Profiles Bootstrap! This guide keeps chan
 - Clone and install: `bash install-claude-profiles.sh --dry-run` to preview, then run without `--dry-run`.
 - Diagnostics: `bash install-claude-profiles.sh --doctor` to verify environment.
 - Switch providers quickly: `cc-use anthropic|zai -- /status`.
+ - For one-off cross-provider runs without changing your default, use `cc-use --force <provider> -- <args>`.
 
 ## Code Changes
 - Keep installer and `extras/` snippets in sync (env unsets, usage text, URLs).
@@ -22,6 +23,7 @@ Thanks for helping improve Claude Code Profiles Bootstrap! This guide keeps chan
 ## Tests & Verification
 - Prefer targeted manual checks:
   - `cc-use anthropic -- /status` and `cc-use zai -- /status`
+  - one-off without conflict: `cc-use --force zai -- /status`
   - direnv template works after `direnv allow`
 - If adding Python or scripts, add lightweight tests where reasonable.
 
