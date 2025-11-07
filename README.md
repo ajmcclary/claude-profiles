@@ -67,6 +67,8 @@ bash install-claude-profiles.sh --uninstall
   ```bash
   cc-use anthropic -- /status
   cc-use zai -- /status
+  # To avoid profile/token conflicts without changing default, use --force
+  cc-use --force zai -- /status
   ```
 - Convenience:
   ```bash
@@ -76,8 +78,8 @@ bash install-claude-profiles.sh --uninstall
 
 Shorthand equivalents:
 ```bash
-# One-off GLM without changing default
-cc-use zai -- /status
+# One-off GLM without changing default (avoids conflicts)
+cc-use --force zai -- /status
 
 # One-off Anthropic without changing default
 cc-use anthropic -- /status

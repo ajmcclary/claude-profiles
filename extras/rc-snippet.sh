@@ -16,6 +16,10 @@ cc-profile() {
 # One-shot (no file edits); sets env only for this invocation
 cc-use() {
   local provider="$1"; shift || true
+  local force="0"
+  if [ "$provider" = "--force" ]; then
+    provider="$1"; shift || true; force="1"
+  fi
   case "$provider" in
     anthropic)
       if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
@@ -27,11 +31,18 @@ cc-use() {
           stty -echo; IFS= read -r ANTHROPIC_API_KEY; stty echo; printf "\n" >&2
         fi
       fi
+      # optional: temporarily point settings to matching profile
+      local prev_link
+      if [ "$force" = "1" ]; then
+        prev_link="$(readlink "$HOME/.claude/settings.json" 2>/dev/null || true)"
+        ln -sf "$HOME/.claude/profiles/anthropic.json" "$HOME/.claude/settings.json"
+      fi
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
       ANTHROPIC_BASE_URL="" \
       ANTHROPIC_AUTH_TOKEN="" \
       ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
       claude "$@"
+      if [ "$force" = "1" ] && [ -n "$prev_link" ]; then ln -sf "$prev_link" "$HOME/.claude/settings.json"; fi
       ;;
     zai)
       if [ -z "${ZAI_API_KEY:-}" ]; then
@@ -43,10 +54,17 @@ cc-use() {
           stty -echo; IFS= read -r ZAI_API_KEY; stty echo; printf "\n" >&2
         fi
       fi
+      # optional: temporarily point settings to matching profile
+      local prev_link
+      if [ "$force" = "1" ]; then
+        prev_link="$(readlink "$HOME/.claude/settings.json" 2>/dev/null || true)"
+        ln -sf "$HOME/.claude/profiles/zai.json" "$HOME/.claude/settings.json"
+      fi
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
       ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic" \
       ANTHROPIC_AUTH_TOKEN="$ZAI_API_KEY" \
       claude "$@"
+      if [ "$force" = "1" ] && [ -n "$prev_link" ]; then ln -sf "$prev_link" "$HOME/.claude/settings.json"; fi
       ;;
     *)
       echo "usage: cc-use anthropic|zai [-- args-to-claude]" >&2; return 2 ;;

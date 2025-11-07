@@ -1,0 +1,7 @@
+{"version":3,"term":{"cols":78,"rows":46,"type":"xterm-256color","theme":{"fg":"#3b3b3b","bg":"#f8f8f8","palette":"#000000:#cd3131:#107c10:#949800:#0451a5:#bc05bc:#0598bc:#555555:#666666:#cd3131:#14ce14:#b5ba00:#0451a5:#bc05bc:#0598bc:#a5a5a5"}},"timestamp":1762519896,"command":"bash -l","env":{"SHELL":"/bin/zsh"}}
+[0.016, "o", "\u001b[?2004hAJs-MacBook-Pro:claude-profiles ajmcclary$ "]
+[21.700, "r", "50x46"]
+[0.011, "o", "\r\u001b[K\rAJs-MacBook-Pro:claude-profiles ajmcclary$ "]
+[74.817, "o", "\u001b[?2004l\r\r\n"]
+[0.000, "o", "logout\r\n"]
+[0.001, "x", "0"]
