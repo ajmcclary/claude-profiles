@@ -98,3 +98,12 @@ You can wire them to a password store (e.g., `pass`) or macOS Keychain.
 
 ## Project description
 Bootstrap Claude Code with seamless provider switching. One command installs the CLI, creates secure Anthropic and GLM (Z.ai) profiles, and adds shell helpers: `cc-profile`, `cc-use`, `claude-anthropic`, `claude-glm`. No secrets on disk—env, pass, or Keychain. Optional direnv template, doctor/uninstall, and dry-run for safety.
+
+## License
+Released under the MIT License. See `LICENSE` for details.
+
+## Contributing
+- Issues and feature requests are welcome via GitHub Issues.
+- For changes, open a PR with a clear description, linked issues, and before/after notes.
+- Run locally: `bash install-claude-profiles.sh --dry-run` and `--doctor` for checks.
+- Ensure helpers and docs stay in sync (installer snippet and `extras/`).
