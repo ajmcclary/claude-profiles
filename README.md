@@ -27,9 +27,14 @@ bash install-claude-profiles.sh --with-direnv
 Open a new shell or `source ~/.zshrc` (or `~/.bashrc`).
 
 ## Demo
-Animated walkthrough of switching and one‑off usage:
+Animated walkthrough of switching and one‑off usage (SVG):
 
-![Demo](docs/demo-switch.gif)
+![Demo](docs/demo-switch.svg)
+
+To (re)generate locally:
+```bash
+bash scripts/make-demo.sh
+```
 
 ## Installer flags
 ```bash
