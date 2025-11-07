@@ -26,6 +26,10 @@ DO_DOCTOR="0"
 QUIET="0"
 VERBOSE="0"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+SNIPPET_FILE="${SCRIPT_DIR}/extras/rc-snippet.sh"
+DIRENV_TEMPLATE_FILE="${SCRIPT_DIR}/examples/.envrc.claude"
+
 print_help(){
   cat <<EOF
 Usage: $(basename "$0") [options]
