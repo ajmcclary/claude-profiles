@@ -11,7 +11,7 @@ This bundle installs **Claude Code** (Anthropic) and sets up two profiles so you
   - Node via `nvm` (if needed)
   - Claude Code CLI
   - Two profiles: `anthropic` and `zai` (no secrets stored on disk)
-  - Shell helpers: `cc-profile`, `cc-use`, `claude-anthropic`, `claude-glm`
+  - Shell helpers: `cc-profile`, `cc-use`, `claude-anthropic`, `claude-glm`, `claude-login`
   - Optional direnv template (`--with-direnv`)
 - `examples/.envrc.claude` — a per-repo direnv template
 - `extras/cc-use-only.sh` — a minimal one-file toggle (no install; source it to use)
@@ -74,6 +74,9 @@ bash install-claude-profiles.sh --uninstall
   ```bash
   claude-anthropic
   claude-glm
+  # OAuth login helper: temporarily switch to a minimal login profile,
+  # run 'claude login' (browser auth), then restore your previous profile
+  claude-login
   ```
 
 Shorthand equivalents:
@@ -96,6 +99,10 @@ No API keys are stored in profile files. Keys are read from environment variable
 - Z.ai: `ZAI_API_KEY` (sent as `Authorization: Bearer` via `ANTHROPIC_AUTH_TOKEN`)
 
 You can wire them to a password store (e.g., `pass`) or macOS Keychain.
+
+### Using OAuth (no API key)
+- Use `claude-login` to temporarily switch to a minimal profile and run `claude login`.
+- After login completes, the previous profile is restored automatically.
 
 ### Uninstall
 - Remove the shell block between `# >>> claude-profiles >>>` and `# <<< claude-profiles <<<` from your shell rc.

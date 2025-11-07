@@ -74,3 +74,10 @@ cc-use() {
 # Convenience wrappers that also persist the profile symlink
 claude-anthropic(){ cc-profile anthropic >/dev/null 2>&1 || true; cc-use anthropic "$@"; }
 claude-glm(){ cc-profile zai >/dev/null 2>&1 || true; cc-use zai "$@"; }
+claude-login(){
+  local prev_link
+  prev_link="$(readlink "$HOME/.claude/settings.json" 2>/dev/null || true)"
+  cc-profile login >/dev/null 2>&1 || true
+  claude login "$@"
+  if [ -n "$prev_link" ]; then ln -sf "$prev_link" "$HOME/.claude/settings.json"; fi
+}

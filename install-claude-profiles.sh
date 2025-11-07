@@ -380,6 +380,18 @@ NODE
     log_i "Profile already exists: zai"
   fi
 
+  # login profile (no apiKeyHelper; for OAuth login flow)
+  if [ ! -f "${PROFILES_DIR}/login.json" ]; then
+    if [ "$DRY_RUN" = "1" ]; then
+      log_i "Would create login.json (empty profile for OAuth)"
+    else
+      printf '{}\n' > "${PROFILES_DIR}/login.json"
+    fi
+    log_ok "Created profile: login"
+  else
+    log_i "Profile already exists: login"
+  fi
+
   # Default link (anthropic) if no settings.json yet
   if [ ! -e "$SETTINGS_SYMLINK" ]; then
     [ "$DRY_RUN" = "1" ] || ln -sf "${PROFILES_DIR}/anthropic.json" "$SETTINGS_SYMLINK"
@@ -482,6 +494,14 @@ cc-use() {
 # Convenience wrappers that also persist the profile symlink
 claude-anthropic(){ cc-profile anthropic >/dev/null 2>&1 || true; cc-use anthropic "$@"; }
 claude-glm(){ cc-profile zai >/dev/null 2>&1 || true; cc-use zai "$@"; }
+claude-login(){
+  # switch to login profile and trigger OAuth login; restore previous profile if set
+  local prev_link
+  prev_link="$(readlink "$HOME/.claude/settings.json" 2>/dev/null || true)"
+  cc-profile login >/dev/null 2>&1 || true
+  claude login "$@"
+  if [ -n "$prev_link" ]; then ln -sf "$prev_link" "$HOME/.claude/settings.json"; fi
+}
 RC
   fi
 
@@ -578,6 +598,7 @@ main(){
   printf "  • One-off run:          cc-use anthropic -- /status\n"
   printf "                          cc-use zai -- /status\n"
   printf "  • Convenience:          claude-anthropic, claude-glm\n"
+  printf "                          claude-login  (switch to OAuth profile, run login, then restore)\n"
   if [ "$WITH_DIRENV" = "1" ]; then
     printf "  • direnv template: copy %s/examples/.envrc.claude into your repo and run: direnv allow\n" "$CLAUDE_DIR"
   fi
